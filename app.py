@@ -2,7 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
-
+from fastapi.responses import FileResponse
+import os
 # =======================================================
 # 1. LIVRO DE REGRAS (O Cérebro da IA)
 # =======================================================
@@ -119,13 +120,16 @@ app.add_middleware(
 
 @app.get("/")
 async def get_frontend():
-    # Define o caminho para o index.html
+    """Serve o arquivo index.html como a página principal."""
+
+    # Pega o caminho absoluto para o index.html
     html_file_path = os.path.join(os.path.dirname(__file__), "index.html")
-    
-    # Verifica se o arquivo existe antes de tentar servi-lo
+
+    # Verifica se o arquivo realmente existe no contêiner
     if os.path.exists(html_file_path):
         return FileResponse(html_file_path)
     else:
+        # Se não encontrar, retorna um erro claro
         return {"error": "index.html not found"}, 404
 # Endpoint: POST /ai/advise
 @app.post("/ai/advise")
