@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SpectroCoach PoC - IFOTOM</title>
+    <!-- Estilos embutidos para a Prova de Conceito (PoC) -->
+    <style>
+        body { 
+            font-family: 'Arial', sans-serif; 
+            padding: 20px; 
+            background-color: #f4f4f9; 
+            max-width: 800px; 
+            margin: auto; 
+            line-height: 1.6;
+        }
+        h1 { color: #007bff; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
+        h3 { margin-top: 20px; color: #343a40; }
+        
+        .input-group { 
+            margin-bottom: 15px; 
+            background-color: #fff; 
+            padding: 15px; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05); 
+        }
+        .input-group label { display: block; font-weight: bold; margin-bottom: 5px; color: #555; }
+        .input-group input { 
+            width: 100%; 
+            padding: 10px; 
+            box-sizing: border-box; 
+            border: 1px solid #ccc; 
+            border-radius: 4px; 
+            font-size: 1em;
+        }
+
+        #analyzeButton { 
+            width: 100%;
+            padding: 12px 25px; 
+            background-color: #28a745; 
+            color: white; 
+            border: none; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            font-size: 1.1em; 
+            transition: background-color 0.3s; 
+        }
+        #analyzeButton:hover { background-color: #218838; }
+        
+        /* Estilos dos Cards de Risco */
+        .risk-status { padding: 15px; border-radius: 8px; font-size: 1.2em; font-weight: bold; margin-bottom: 20px; text-align: center; }
+        .level-alto { background-color: #dc3545; color: white; }
+        .level-medio { background-color: #ffc107; color: #343a40; }
+        .level-baixo { background-color: #28a745; color: white; }
+
+        .tip-card { border-radius: 5px; padding: 15px; margin-top: 10px; border-left: 5px solid; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .tip-card.level-alto { border-color: red; background-color: #f8d7da; color: #721c24; }
+        .tip-card.level-medio { border-color: orange; background-color: #fff3cd; color: #856404; }
+        
+        details { margin-top: 10px; cursor: pointer; }
+        details summary { font-weight: bold; padding: 5px 0; }
+    </style>
+</head>
+<body>
+    <h1>🔬 SpectroCoach - Análise de Qualidade de Dados</h1>
+    <p>Simule os parâmetros críticos da sua curva de calibração para receber feedback imediato da IA.</p>
+
+    <!-- Formulário de Entrada -->
+    <div class="input-group">
+        <label for="absorbance">Absorbância (A)</label>
+        <input type="number" id="absorbance" value="1.35" step="0.001" placeholder="Ex: 1.35 (Alto risco > 1.2)">
+    </div>
+    <div class="input-group">
+        <label for="r_squared">R² (Curva de Calibração)</label>
+        <input type="number" id="r_squared" value="0.985" step="0.001" placeholder="Ex: 0.985 (Alto risco < 0.990)">
+    </div>
+    <div class="input-group">
+        <label for="cv_percent">CV% (Variação - Coeficiente de Variação)</label>
+        <input type="number" id="cv_percent" value="1.5" step="0.1" placeholder="Ex: 1.5 (Alto risco > 5.0)">
+    </div>
+    <div class="input-group">
+        <label for="intercept">Intercepto (b)</label>
+        <input type="number" id="intercept" value="0.08" step="0.001" placeholder="Ex: 0.08 (Alto risco > 0.05)">
+    </div>
+
+    <button id="analyzeButton">Analisar com Coach</button>
+
+    <!-- Container para os Resultados -->
+    <div id="coach-results" style="margin-top: 30px;">
+        <!-- Resultados serão injetados aqui -->
+    </div>
+
+    <!-- Script JavaScript para conectar e renderizar -->
+    <script>
+        const analyzeButton = document.getElementById('analyzeButton');
+        const resultsDiv = document.getElementById('coach-results');
+        const API_URL = 'http://localhost:8000/ai/advise'; // Porta 8000 do FastAPI
+
+        // Função 1: Coleta dados
+        function collectData() {
+            return {
+                // Certifique-se de que todos os valores são tratados como números
+                absorbance: parseFloat(document.getElementById('absorbance').value) || 0,
+                r_squared: parseFloat(document.getElementById('r_squared').value) || 0,
+                cv_percent: parseFloat(document.getElementById('cv_percent').value) || 0,
+                intercept: parseFloat(document.getElementById('intercept').value) || 0,
+            };
+        }
+
+        // Função 2: Chama a API
+        async function callAPI(data) {
+            resultsDiv.innerHTML = '<p>Aguarde, processando a análise...</p>';
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (!response.ok) {
+                    // Trata erros HTTP como 404 ou 500
+                    const errorText = await response.text();
+                    throw new Error(`Erro HTTP ${response.status}: ${errorText}`);
+                }
+                return await response.json();
+            } catch (error) {
+                console.error("Erro ao conectar/processar:", error);
+                resultsDiv.innerHTML = `
+                    <div class="risk-status level-alto">
+                        ERRO DE CONEXÃO
+                    </div>
+                    <p style="color: red;">Não foi possível conectar ao SpectroCoach API.</p>
+                    <p>Verifique se o servidor FastAPI (app.py) está rodando na porta 8000.</p>
+                `;
+                return null;
+            }
+        }
+
+        // Função 3: Renderiza os Resultados
+        function renderResults(response) {
+            resultsDiv.innerHTML = ''; // Limpa resultados anteriores
+            
+            const riskLevelClass = response.risk_level.toLowerCase();
+
+            // 1. Título de Risco
+            resultsDiv.innerHTML += `
+                <div class="risk-status level-${riskLevelClass}">
+                    STATUS DA ANÁLISE: Risco ${response.risk_level} (Score: ${response.risk_score})
+                </div>
+            `;
+            
+            // 2. Renderiza as Dicas (Cards)
+            if (response.tips && response.tips.length > 0) {
+                resultsDiv.innerHTML += '<h3>Dicas e Correções do Coach:</h3>';
+                response.tips.forEach(tip => {
+                    const cardHTML = `
+                        <div class="tip-card level-${tip.level.toLowerCase()}">
+                            <strong>${tip.title}</strong>
+                            <p><b>Sugestão:</b> ${tip.sugestao}</p>
+                            <details>
+                                <summary>Clique para a Explicação Rápida</summary>
+                                <p><b>Explicação:</b> ${tip.explicacao}</p>
+                            </details>
+                        </div>
+                    `;
+                    resultsDiv.innerHTML += cardHTML;
+                });
+            } else {
+                 resultsDiv.innerHTML += '<p style="color: green;">✅ Análise Perfeita! Prossiga com o cálculo da concentração.</p>';
+            }
+        }
+
+        // Event Listener do Botão
+        analyzeButton.addEventListener('click', async () => {
+            const data = collectData();
+            const response = await callAPI(data);
+            
+            if (response) {
+                renderResults(response);
+            }
+        });
+
+        // Simula um clique inicial para mostrar a tela
+        document.addEventListener('DOMContentLoaded', () => {
+             // Deixa os valores de risco alto pré-inseridos para facilitar o primeiro teste
+        });
+    </script>
+</body>
+</html>
