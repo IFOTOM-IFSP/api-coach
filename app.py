@@ -117,6 +117,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/")
+async def get_frontend():
+    # Define o caminho para o index.html
+    html_file_path = os.path.join(os.path.dirname(__file__), "index.html")
+    
+    # Verifica se o arquivo existe antes de tentar servi-lo
+    if os.path.exists(html_file_path):
+        return FileResponse(html_file_path)
+    else:
+        return {"error": "index.html not found"}, 404
 # Endpoint: POST /ai/advise
 @app.post("/ai/advise")
 def advise(request_data: AnalysisRequest):
